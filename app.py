@@ -1,3 +1,23 @@
+
+import requests
+from io import StringIO
+
+def load_backup_from_github():
+    github_raw_url = "https://raw.githubusercontent.com/Yejinjasmine/Similarity-Survey/main/responses_backup.csv"
+    try:
+        response = requests.get(github_raw_url)
+        if response.status_code == 200:
+            csv_text = response.text
+            df = pd.read_csv(StringIO(csv_text))
+            return df
+        else:
+            print("⚠️ GitHub에서 CSV를 찾을 수 없습니다.")
+            return pd.DataFrame()
+    except Exception as e:
+        print(f"❌ GitHub에서 불러오기 실패: {e}")
+        return pd.DataFrame()
+
+
 import streamlit as st
 import os
 import pandas as pd
@@ -31,6 +51,8 @@ if st.session_state.step == "start_check":
             participant_id = f"{name}_{year}_{suffix}"
             if os.path.exists("responses_backup.csv"):
                 prev_data = pd.read_csv("responses_backup.csv")
+            else:
+                prev_data = load_backup_from_github()
                 if participant_id in prev_data["참가자 ID"].values:
                     st.session_state.user_info = {
                         "참가자 ID": participant_id,
