@@ -1,5 +1,5 @@
-st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 import streamlit as st
+st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 
 if "step" not in st.session_state:
     st.session_state.step = "start_check"
@@ -46,7 +46,6 @@ if st.session_state.step == "start_check":
 
 
 
-import streamlit as st
 import pandas as pd
 import os
 import time
