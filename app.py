@@ -209,26 +209,50 @@ elif st.session_state.step == "survey":
         st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence B</p>", unsafe_allow_html=True)
         st.markdown(f"<p style='font-size:22px;'>{row['Sentence B']}</p>", unsafe_allow_html=True)
 
-        choice = st.radio("이 두 문장은 얼마나 유사한가요?", list(rating_labels.keys()), index=3)
+        # 사용자 응답 유지
+        previous_rating = None
+        for r in st.session_state.responses:
+            if r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"]:
+                previous_rating = r["Rating"]
+                break
+
+        rating_keys = list(rating_labels.keys())
+        rating_values = list(rating_labels.values())
+        index_value = rating_values.index(previous_rating) if previous_rating in rating_values else 3
+
+        choice = st.radio("이 두 문장은 얼마나 유사한가요?", rating_keys, index=index_value)
         rating = rating_labels[choice]
 
-        if st.button("다음"):
-            combined = {
-                "ID": int(row["ID"]),
-                "Sentence A": row["Sentence A"],
-                "Sentence B": row["Sentence B"],
-                "Rating": rating,
-                "응답 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            combined.update(st.session_state.user_info)
-            st.session_state.responses.append(combined)
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.session_state.index > 0:
+                if st.button("⬅ 이전"):
+                    st.session_state.index -= 1
+                    st.rerun()
+        with col2:
+            if st.button("다음 ➡"):
+                combined = {
+                    "ID": int(row["ID"]),
+                    "Sentence A": row["Sentence A"],
+                    "Sentence B": row["Sentence B"],
+                    "Rating": rating,
+                    "응답 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                combined.update(st.session_state.user_info)
 
-            df_responses = pd.DataFrame(st.session_state.responses)
-            df_responses.to_csv(SAVE_FILE, index=False)
-            df_responses.to_csv(BACKUP_FILE, index=False)
+                # 중복 응답 제거하고 다시 추가
+                st.session_state.responses = [
+                    r for r in st.session_state.responses
+                    if not (r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"])
+                ]
+                st.session_state.responses.append(combined)
 
-            st.session_state.index += 1
-            st.rerun()
+                df_responses = pd.DataFrame(st.session_state.responses)
+                df_responses.to_csv(SAVE_FILE, index=False)
+                df_responses.to_csv(BACKUP_FILE, index=False)
+
+                st.session_state.index += 1
+                st.rerun()
     else:
         st.success("설문이 완료되었습니다. 감사합니다!")
         final_df = pd.DataFrame(st.session_state.responses)
