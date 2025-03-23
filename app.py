@@ -96,10 +96,10 @@ elif st.session_state.step == "survey":
     i = st.session_state.index
     if i < total_pairs:
         row = df.iloc[i]
-        st.markdown(f"""### 문장 A  
-> {row['문장 A']}""")
-        st.markdown(f"""### 문장 B  
-> {row['문장 B']}""")
+        st.markdown(f"""### Sentence A  
+> {row['Sentence A']}""")
+        st.markdown(f"""### Sentence B  
+> {row['Sentence B']}""")
 
         choice = st.radio("이 두 문장은 얼마나 유사한가요?", list(rating_labels.keys()), index=3)
         rating = rating_labels[choice]
@@ -107,8 +107,8 @@ elif st.session_state.step == "survey":
         if st.button("다음"):
             combined = {
                 "ID": int(row["ID"]),
-                "문장 A": row["문장 A"],
-                "문장 B": row["문장 B"],
+                "Sentence A": row["Sentence A"],
+                "Sentence B": row["Sentence B"],
                 "Rating": rating
             }
             combined.update(st.session_state.user_info)
