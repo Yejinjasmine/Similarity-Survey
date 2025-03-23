@@ -150,10 +150,18 @@ elif st.session_state.step == "instruction":
     ]
 
     all_checked = True
-    for i, explanation in enumerate(explanations):
-        st.markdown(f"- {explanation}")
-        if not st.checkbox("이해했습니다", key=f"agree_{i}"):
-            all_checked = False
+for i, explanation in enumerate(explanations):
+    st.markdown(f"- {explanation}", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div style="padding-left: 20px;">
+                <label style="color: gray;">
+                    {st.checkbox("이해했습니다", key=f"agree_{i}")}
+                </label>
+            </div>""",
+        unsafe_allow_html=True,
+    )
+    if not st.session_state.get(f"agree_{i}", False):
+        all_checked = False
 
     if all_checked:
         st.success("설문을 시작할 수 있습니다!")
