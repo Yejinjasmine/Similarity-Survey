@@ -3,56 +3,57 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+import random
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 
-# CSV 파일 경로
 PAIR_FILE = "sentence_pairs.csv"
 SAVE_FILE = "responses_temp.csv"
+BACKUP_FILE = "responses_backup.csv"
 TIME_LIMIT_HOURS = 6
 
-# 문장쌍 불러오기
 @st.cache_data
 def load_data():
     return pd.read_csv(PAIR_FILE)
 
-df = load_data()
-total_pairs = len(df)
+df_original = load_data()
+total_pairs = len(df_original)
 
-# 중간 저장 응답 불러오기
-def load_previous_responses():
-    if os.path.exists(SAVE_FILE):
-        return pd.read_csv(SAVE_FILE)
-    else:
-        return pd.DataFrame()
-
-# 세션 상태 초기화
 if "step" not in st.session_state:
     st.session_state.step = "intro"
 if "index" not in st.session_state:
     st.session_state.index = 0
 if "responses" not in st.session_state:
-    st.session_state.responses = load_previous_responses().to_dict("records")
+    st.session_state.responses = []
 if "user_info" not in st.session_state:
     st.session_state.user_info = {}
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
+if "paused" not in st.session_state:
+    st.session_state.paused = False
+if "shuffled_ids" not in st.session_state:
+    st.session_state.shuffled_ids = random.sample(range(total_pairs), total_pairs)
 
-# 참가자 ID 생성 (이름 + 생년 + 전화번호 일부로 구성)
+def load_previous_responses():
+    if os.path.exists(SAVE_FILE):
+        return pd.read_csv(SAVE_FILE)
+    return pd.DataFrame()
+
 def generate_participant_id(name, year, phone):
     suffix = phone[-4:] if len(phone) >= 4 else "XXXX"
     return f"{name}_{year}_{suffix}"
 
-# 남은 시간 계산
 def get_remaining_time():
+    if st.session_state.paused:
+        return st.session_state.remaining_at_pause
     elapsed = time.time() - st.session_state.start_time
     remaining = max(0, TIME_LIMIT_HOURS * 3600 - elapsed)
     return timedelta(seconds=int(remaining))
 
-# Step 1: 사용자 정보
 if st.session_state.step == "intro":
     st.title("📋 문장 유사도 평가 설문 - 시작 전 정보 입력")
+    st.markdown("🔔 **본 설문조사는 핸드폰이 아닌 컴퓨터로 응시하기를 권장합니다.**")
 
     with st.form("user_info_form"):
         st.header("1️⃣ 기본 정보 입력")
@@ -84,44 +85,54 @@ if st.session_state.step == "intro":
             "이메일": email,
             "응답 시작 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
+        st.session_state.responses = load_previous_responses().to_dict("records")
         st.session_state.step = "instruction"
         st.session_state.start_time = time.time()
+        st.session_state.paused = False
         st.rerun()
 
-# Step 2: 설명 및 확인
 elif st.session_state.step == "instruction":
     st.header("2️⃣ 설문 설명 및 동의")
 
-    st.markdown("#### ✅ 이 섹션은 '위험 경향과 관련된 행동' 문장들의 유사도를 평가하는 것입니다.")
-    st.markdown("- 총 **46개의 문장 쌍**에 대해, **1035번의 유사도 평가**를 하게 됩니다.")
-    st.markdown("- 1035 = 46 × 45 ÷ 2")
+    st.markdown("#### ✅ 이 설문은 '위험 경향과 관련된 행동' 문장들의 유사도를 평가하는 것입니다.")
+    st.markdown("- 총 **46개의 문장**으로 구성된 **1035쌍**의 문장쌍을 평가합니다.")
+    st.markdown("- 제시되는 순서는 무작위이며, 분석은 원래 순서를 기준으로 합니다.")
 
     understood_1 = st.checkbox("이해했습니다. (위 설명)")
-    
-    st.markdown("#### ✅ 본 설문지는 응답자의 '위험 성향'을 묻는 것이 아닙니다.")
-    st.markdown("- 쌍으로 제시된 두 문장이 **얼마나 유사한지를 평가**하는 것이 목적입니다.")
-    
-    understood_2 = st.checkbox("이해했습니다. (설문 목적)")
+    understood_2 = st.checkbox("이해했습니다. (설문 목적: 문장쌍 유사도 평가)")
 
     if understood_1 and understood_2:
-        st.success("설문을 시작할 수 있습니다! 아래 버튼을 눌러 주세요.")
+        st.success("설문을 시작할 수 있습니다!")
         if st.button("👉 설문 시작하기"):
             st.session_state.step = "survey"
+            st.session_state.start_time = time.time()
             st.rerun()
     else:
-        st.warning("두 설명 모두 '이해했습니다' 체크 후 진행할 수 있습니다.")
+        st.warning("두 항목 모두 체크해야 진행할 수 있습니다.")
 
-# Step 3: 설문
 elif st.session_state.step == "survey":
     st.title("문장 유사도 평가 설문")
 
-    # 응답 제한 시간 표시
     remaining = get_remaining_time()
     if remaining.total_seconds() <= 0:
-        st.error("⏰ 응답 시간이 초과되었습니다. 6시간 이내에 설문을 완료해 주세요.")
-        st.stop()
+        st.warning("⚠️ 응답 가능 시간이 초과되었습니다. 설문은 계속 진행할 수 있지만, 가능한 빠르게 완료해 주세요.")
     else:
         st.info(f"⏱️ 남은 시간: {remaining}")
+
+    if st.session_state.paused:
+        if st.button("▶️ 설문 다시 시작하기"):
+            st.session_state.paused = False
+            st.session_state.start_time = time.time() - (TIME_LIMIT_HOURS * 3600 - st.session_state.remaining_at_pause.total_seconds())
+            st.rerun()
+    else:
+        if st.button("⏸️ 설문 일시 중지하기"):
+            st.session_state.paused = True
+            st.session_state.remaining_at_pause = remaining
+            st.rerun()
+
+    answered_ids = [r["ID"] for r in st.session_state.responses if r["참가자 ID"] == st.session_state.user_info["참가자 ID"]]
+    current_idx = len(answered_ids)
+    st.markdown(f"**응답 질문: {current_idx + 1} / {total_pairs}**")
 
     rating_labels = {
         "1 - 완전히 다름 (Totally different)": 1,
@@ -134,13 +145,17 @@ elif st.session_state.step == "survey":
     }
 
     i = st.session_state.index
-
-    while i < total_pairs and any(r["ID"] == df.iloc[i]["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"] for r in st.session_state.responses):
+    while i < total_pairs:
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
+        if not any(r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"] for r in st.session_state.responses):
+            break
         i += 1
         st.session_state.index = i
 
     if i < total_pairs:
-        row = df.iloc[i]
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
 
         st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence A</p>", unsafe_allow_html=True)
         st.markdown(f"<p style='font-size:22px;'>{row['Sentence A']}</p>", unsafe_allow_html=True)
@@ -162,16 +177,15 @@ elif st.session_state.step == "survey":
             combined.update(st.session_state.user_info)
             st.session_state.responses.append(combined)
 
-            # 중간 저장
-            pd.DataFrame(st.session_state.responses).to_csv(SAVE_FILE, index=False)
+            df_responses = pd.DataFrame(st.session_state.responses)
+            df_responses.to_csv(SAVE_FILE, index=False)
+            df_responses.to_csv(BACKUP_FILE, index=False)
 
             st.session_state.index += 1
             st.rerun()
     else:
         st.success("설문이 완료되었습니다. 감사합니다!")
-
-        responses_df = pd.DataFrame(st.session_state.responses)
+        final_df = pd.DataFrame(st.session_state.responses)
         filename = "responses.csv"
-        responses_df.to_csv(filename, index=False)
-
-        st.download_button("응답 데이터 다운로드", data=responses_df.to_csv(index=False), file_name="responses.csv", mime="text/csv")
+        final_df.to_csv(filename, index=False)
+        st.download_button("응답 데이터 다운로드", data=final_df.to_csv(index=False), file_name=filename, mime="text/csv")
