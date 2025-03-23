@@ -95,7 +95,6 @@ if st.session_state.step == "start_check":
             else:
                 st.error("⚠️ 백업 데이터가 존재하지 않습니다.")
 
-
 # 2단계: 사용자 정보 입력
 elif st.session_state.step == "intro":
     st.title("📋 문장 유사도 평가 설문 - 시작 전 정보 입력")
@@ -164,6 +163,87 @@ elif st.session_state.step == "instruction":
             st.rerun()
     else:
         st.warning("모든 항목을 체크해야 다음 단계로 진행할 수 있습니다.")
+
+# 4단계: 설문
+elif st.session_state.step == "survey":
+    st.title("문장 유사도 평가 설문")
+
+    remaining = get_remaining_time()
+    if remaining.total_seconds() <= 0:
+        st.warning("⚠️ 응답 가능 시간이 초과되었습니다. 설문은 계속 진행할 수 있지만, 가능한 빠르게 완료해 주세요.")
+    else:
+        st.info(f"⏱️ 남은 시간: {remaining}")
+
+    if st.session_state.paused:
+        if st.button("▶️ 설문 다시 시작하기"):
+            st.session_state.paused = False
+            st.session_state.start_time = time.time() - (TIME_LIMIT_HOURS * 3600 - st.session_state.remaining_at_pause.total_seconds())
+            st.rerun()
+    else:
+        if st.button("⏸️ 설문 일시 중지하기"):
+            st.session_state.paused = True
+            st.session_state.remaining_at_pause = remaining
+            st.rerun()
+
+    answered_ids = [r["ID"] for r in st.session_state.responses if r["참가자 ID"] == st.session_state.user_info["참가자 ID"]]
+    current_idx = len(answered_ids)
+    st.markdown(f"**응답 질문: {current_idx + 1} / {total_pairs}**")
+
+    rating_labels = {
+        "1 - 완전히 다름 (Totally different)": 1,
+        "2 - 매우 다름 (Very different)": 2,
+        "3 - 꽤 다름 (Rather different)": 3,
+        "4 - 비슷함 (Similar)": 4,
+        "5 - 꽤 비슷함 (Rather similar)": 5,
+        "6 - 매우 비슷함 (Very similar)": 6,
+        "7 - 거의 동일함 (Totally similar)": 7
+    }
+
+    i = st.session_state.index
+    while i < total_pairs:
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
+        if not any(r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"] for r in st.session_state.responses):
+            break
+        i += 1
+        st.session_state.index = i
+
+    if i < total_pairs:
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence A</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence A']}</p>", unsafe_allow_html=True)
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence B</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence B']}</p>", unsafe_allow_html=True)
+
+        choice = st.radio("이 두 문장은 얼마나 유사한가요?", list(rating_labels.keys()), index=3)
+        rating = rating_labels[choice]
+
+        if st.button("다음"):
+            combined = {
+                "ID": int(row["ID"]),
+                "Sentence A": row["Sentence A"],
+                "Sentence B": row["Sentence B"],
+                "Rating": rating,
+                "응답 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            combined.update(st.session_state.user_info)
+            st.session_state.responses.append(combined)
+
+            df_responses = pd.DataFrame(st.session_state.responses)
+            df_responses.to_csv(SAVE_FILE, index=False)
+            df_responses.to_csv(BACKUP_FILE, index=False)
+
+            st.session_state.index += 1
+            st.rerun()
+    else:
+        st.success("설문이 완료되었습니다. 감사합니다!")
+        final_df = pd.DataFrame(st.session_state.responses)
+        filename = "responses.csv"
+        final_df.to_csv(filename, index=False)
+        st.download_button("응답 데이터 다운로드", data=final_df.to_csv(index=False), file_name=filename, mime="text/csv")
 
     elif st.session_state.step == "survey":
     st.title("문장 유사도 평가 설문")
