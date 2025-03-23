@@ -147,7 +147,7 @@ elif st.session_state.step == "instruction":
         "위험 회피는 자신의 행동이 손실을 초래할 가능성이 있을 때 그러한 행동을 피하려는 성향입니다. 예: 자율 주행 중 도로 상황을 주시하는 행위.",
         "이번 설문에서는 서울대학교에 재학 중인 한국어 모국어 화자들이 참여 예정입니다. 과업을 완료하는 데에는 2시간이 소요됩니다.",
         "참가자들은 제시되는 문장들을 '완전히 다름'부터 '거의 동일함'까지의 7개 척도로 평가합니다.\n\n*7개 척도*\n1 - 완전히 다름\n2 - 매우 다름\n3 - 꽤 다름\n4 - 비슷함\n5 - 꽤 비슷함\n6 - 매우 비슷함\n7 - 거의 동일함",
-        "두 문장이 유사하다고 생각되는 만큼 점수를 평가하면 됩니다. 사람마다 평가가 다를 수 있으므로, 일관적인 기준에 따라 주관적으로 판단하시면 됩니다.\n\n예: '사자는 매우 용맹한 동물이다.' vs '호랑이는 매우 용감한 동물이다.' -> 사자와 호랑이가 다른 동물이지만 맹수라는 점이 비슷하고, 용맹함과 용감함이 정확히 같은 뜻은 아니나 비슷한 의미라고 생각되어 두 문장의 관계를 "5점 - 꽤 비슷함"으로 평가할 수 있음. 혹은, 사자와 호랑이는 엄연히 다른 동물이며, 꼭 용맹스러워야 용감한 것은 아니기 때문에 두 문장의 관계를 "3점 - 꽤 다름"으로 평가할 수 있음.",
+        "두 문장이 유사하다고 생각되는 만큼 점수를 평가하면 됩니다. 사람마다 평가가 다를 수 있으므로, 일관적인 기준에 따라 주관적으로 판단하시면 됩니다.\n\n예: '사자는 매우 용맹한 동물이다.' vs '호랑이는 매우 용감한 동물이다.' -> 사자와 호랑이가 다른 동물이지만 맹수라는 점이 비슷하고, 용맹함과 용감함이 정확히 같은 뜻은 아니나 비슷한 의미라고 생각되어 두 문장의 관계를 "5점 - 꽤 비슷함"으로 평가할 수 있음. 혹은, 사자와 호랑이는 엄연히 다른 동물이며, 꼭 용맹스러워야 용감한 것은 아니기 때문에 두 문장의 관계를 "3점 - 꽤 다름"으로 평가할 수 있음",
         "본 설문은 응답자의 위험 경향을 묻는 것이 아니라, 쌍으로 제시된 두 문장이 얼마나 유사한지를 묻는 것입니다."
     ]
 
@@ -165,3 +165,83 @@ elif st.session_state.step == "instruction":
             st.rerun()
     else:
         st.warning("모든 항목을 체크해야 다음 단계로 진행할 수 있습니다.")
+
+    elif st.session_state.step == "survey":
+    st.title("문장 유사도 평가 설문")
+
+    remaining = get_remaining_time()
+    if remaining.total_seconds() <= 0:
+        st.warning("⚠️ 응답 가능 시간이 초과되었습니다. 설문은 계속 진행할 수 있지만, 가능한 빠르게 완료해 주세요.")
+    else:
+        st.info(f"⏱️ 남은 시간: {remaining}")
+
+    if st.session_state.paused:
+        if st.button("▶️ 설문 다시 시작하기"):
+            st.session_state.paused = False
+            st.session_state.start_time = time.time() - (TIME_LIMIT_HOURS * 3600 - st.session_state.remaining_at_pause.total_seconds())
+            st.rerun()
+    else:
+        if st.button("⏸️ 설문 일시 중지하기"):
+            st.session_state.paused = True
+            st.session_state.remaining_at_pause = remaining
+            st.rerun()
+
+    answered_ids = [r["ID"] for r in st.session_state.responses if r["참가자 ID"] == st.session_state.user_info["참가자 ID"]]
+    current_idx = len(answered_ids)
+    st.markdown(f"**응답 질문: {current_idx + 1} / {total_pairs}**")
+
+    rating_labels = {
+        "1 - 완전히 다름 (Totally different)": 1,
+        "2 - 매우 다름 (Very different)": 2,
+        "3 - 꽤 다름 (Rather different)": 3,
+        "4 - 비슷함 (Similar)": 4,
+        "5 - 꽤 비슷함 (Rather similar)": 5,
+        "6 - 매우 비슷함 (Very similar)": 6,
+        "7 - 거의 동일함 (Totally similar)": 7
+    }
+
+    i = st.session_state.index
+    while i < total_pairs:
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
+        if not any(r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"] for r in st.session_state.responses):
+            break
+        i += 1
+        st.session_state.index = i
+
+    if i < total_pairs:
+        shuffled_i = st.session_state.shuffled_ids[i]
+        row = df_original.iloc[shuffled_i]
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence A</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence A']}</p>", unsafe_allow_html=True)
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence B</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence B']}</p>", unsafe_allow_html=True)
+
+        choice = st.radio("이 두 문장은 얼마나 유사한가요?", list(rating_labels.keys()), index=3)
+        rating = rating_labels[choice]
+
+        if st.button("다음"):
+            combined = {
+                "ID": int(row["ID"]),
+                "Sentence A": row["Sentence A"],
+                "Sentence B": row["Sentence B"],
+                "Rating": rating,
+                "응답 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            combined.update(st.session_state.user_info)
+            st.session_state.responses.append(combined)
+
+            df_responses = pd.DataFrame(st.session_state.responses)
+            df_responses.to_csv(SAVE_FILE, index=False)
+            df_responses.to_csv(BACKUP_FILE, index=False)
+
+            st.session_state.index += 1
+            st.rerun()
+    else:
+        st.success("설문이 완료되었습니다. 감사합니다!")
+        final_df = pd.DataFrame(st.session_state.responses)
+        filename = "responses.csv"
+        final_df.to_csv(filename, index=False)
+        st.download_button("응답 데이터 다운로드", data=final_df.to_csv(index=False), file_name=filename, mime="text/csv")
