@@ -149,20 +149,21 @@ elif st.session_state.step == "instruction":
         "본 설문은 응답자의 위험 성향이 아닌 문장 유사도를 묻는 것입니다."
     ]
 
-    all_checked = True
-for i, explanation in enumerate(explanations):
-    st.markdown(f"- {explanation}", unsafe_allow_html=True)
-    st.markdown(
-        f"""<div style="padding-left: 20px;">
-                <label style="color: gray;">
-                    {st.checkbox("이해했습니다", key=f"agree_{i}")}
-                </label>
-            </div>""",
-        unsafe_allow_html=True,
-    )
-    if not st.session_state.get(f"agree_{i}", False):
-        all_checked = False
+   all_checked = True
+    for i, explanation in enumerate(explanations):
+        st.markdown(f"- {explanation}", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div style="padding-left: 20px;">
+                    <label style="color: gray;">
+                        {st.checkbox("이해했습니다", key=f"agree_{i}")}
+                    </label>
+                </div>""",
+            unsafe_allow_html=True,
+        )
+        if not st.session_state.get(f"agree_{i}", False):
+            all_checked = False
 
+    # ✅ 이 if/else 들여쓰기가 반드시 for 바깥에 있어야 함
     if all_checked:
         st.success("설문을 시작할 수 있습니다!")
         if st.button("👉 설문 시작하기"):
@@ -171,7 +172,6 @@ for i, explanation in enumerate(explanations):
             st.rerun()
     else:
         st.warning("모든 항목을 체크해야 다음 단계로 진행할 수 있습니다.")
-
 # 4단계: 설문
 elif st.session_state.step == "survey":
     st.title("문장 유사도 평가 설문")
