@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 from datetime import datetime
+from datetime import timedelta
 import time
 st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 
