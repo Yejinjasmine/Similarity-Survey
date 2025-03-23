@@ -54,7 +54,7 @@ if st.session_state.step == "intro":
             "이메일": email
         }
         st.session_state.step = "instruction"
-        st.experimental_rerun()
+        st.rerun()
 
 # Step 2: Instruction
 elif st.session_state.step == "instruction":
@@ -75,7 +75,7 @@ elif st.session_state.step == "instruction":
         st.success("설문을 시작할 수 있습니다! 아래 버튼을 눌러 주세요.")
         if st.button("👉 설문 시작하기"):
             st.session_state.step = "survey"
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.warning("두 설명 모두 '이해했습니다' 체크 후 진행할 수 있습니다.")
 
@@ -114,7 +114,7 @@ elif st.session_state.step == "survey":
             combined.update(st.session_state.user_info)
             st.session_state.responses.append(combined)
             st.session_state.index += 1
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.success("설문이 완료되었습니다. 감사합니다!")
 
