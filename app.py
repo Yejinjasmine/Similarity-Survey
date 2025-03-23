@@ -50,9 +50,9 @@ import pandas as pd
 import os
 import time
 import random
+st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 
 PAIR_FILE = "sentence_pairs.csv"
 SAVE_FILE = "responses_temp.csv"
