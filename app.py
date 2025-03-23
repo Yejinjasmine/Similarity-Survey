@@ -153,7 +153,7 @@ elif st.session_state.step == "instruction":
 
     for i, explanation in enumerate(explanations):
         st.markdown(f"- {explanation}", unsafe_allow_html=True)
-        checked = st.checkbox("이해했습니다", key=f"agree_{i}")
+        checked = st.checkbox(key=f"agree_{i}")
         st.markdown(
             f"""<div style="padding-left: 20px;">
                     <label style="color: gray;"> 이해했습니다</label>
