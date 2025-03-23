@@ -149,7 +149,8 @@ elif st.session_state.step == "instruction":
         "본 설문은 응답자의 위험 성향이 아닌 문장 유사도를 묻는 것입니다."
     ]
 
-   all_checked = True
+    all_checked = True
+
     for i, explanation in enumerate(explanations):
         st.markdown(f"- {explanation}", unsafe_allow_html=True)
         st.markdown(
