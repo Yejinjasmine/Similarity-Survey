@@ -1,28 +1,56 @@
 
 import streamlit as st
 import pandas as pd
+import os
+import time
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 
-# Load sentence pairs
+# CSV 파일 경로
+PAIR_FILE = "sentence_pairs.csv"
+SAVE_FILE = "responses_temp.csv"
+TIME_LIMIT_HOURS = 6
+
+# 문장쌍 불러오기
 @st.cache_data
 def load_data():
-    return pd.read_csv("sentence_pairs.csv")
+    return pd.read_csv(PAIR_FILE)
 
 df = load_data()
 total_pairs = len(df)
 
-# Session states
+# 중간 저장 응답 불러오기
+def load_previous_responses():
+    if os.path.exists(SAVE_FILE):
+        return pd.read_csv(SAVE_FILE)
+    else:
+        return pd.DataFrame()
+
+# 세션 상태 초기화
 if "step" not in st.session_state:
     st.session_state.step = "intro"
 if "index" not in st.session_state:
     st.session_state.index = 0
 if "responses" not in st.session_state:
-    st.session_state.responses = []
+    st.session_state.responses = load_previous_responses().to_dict("records")
 if "user_info" not in st.session_state:
     st.session_state.user_info = {}
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
 
-# Step 1: Intro and personal info
+# 참가자 ID 생성 (이름 + 생년 + 전화번호 일부로 구성)
+def generate_participant_id(name, year, phone):
+    suffix = phone[-4:] if len(phone) >= 4 else "XXXX"
+    return f"{name}_{year}_{suffix}"
+
+# 남은 시간 계산
+def get_remaining_time():
+    elapsed = time.time() - st.session_state.start_time
+    remaining = max(0, TIME_LIMIT_HOURS * 3600 - elapsed)
+    return timedelta(seconds=int(remaining))
+
+# Step 1: 사용자 정보
 if st.session_state.step == "intro":
     st.title("📋 문장 유사도 평가 설문 - 시작 전 정보 입력")
 
@@ -42,7 +70,9 @@ if st.session_state.step == "intro":
         submitted = st.form_submit_button("다음 단계로 진행하기")
 
     if submitted:
+        participant_id = generate_participant_id(name, birth_year, phone)
         st.session_state.user_info = {
+            "참가자 ID": participant_id,
             "이름": name,
             "출생 연도": birth_year,
             "나이": age,
@@ -51,12 +81,14 @@ if st.session_state.step == "intro":
             "계좌": bank_account,
             "소속": affiliation,
             "주민등록번호": ssn,
-            "이메일": email
+            "이메일": email,
+            "응답 시작 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         st.session_state.step = "instruction"
+        st.session_state.start_time = time.time()
         st.rerun()
 
-# Step 2: Instruction
+# Step 2: 설명 및 확인
 elif st.session_state.step == "instruction":
     st.header("2️⃣ 설문 설명 및 동의")
 
@@ -79,9 +111,17 @@ elif st.session_state.step == "instruction":
     else:
         st.warning("두 설명 모두 '이해했습니다' 체크 후 진행할 수 있습니다.")
 
-# Step 3: Survey questions
+# Step 3: 설문
 elif st.session_state.step == "survey":
     st.title("문장 유사도 평가 설문")
+
+    # 응답 제한 시간 표시
+    remaining = get_remaining_time()
+    if remaining.total_seconds() <= 0:
+        st.error("⏰ 응답 시간이 초과되었습니다. 6시간 이내에 설문을 완료해 주세요.")
+        st.stop()
+    else:
+        st.info(f"⏱️ 남은 시간: {remaining}")
 
     rating_labels = {
         "1 - 완전히 다름 (Totally different)": 1,
@@ -94,12 +134,19 @@ elif st.session_state.step == "survey":
     }
 
     i = st.session_state.index
+
+    while i < total_pairs and any(r["ID"] == df.iloc[i]["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"] for r in st.session_state.responses):
+        i += 1
+        st.session_state.index = i
+
     if i < total_pairs:
         row = df.iloc[i]
-        st.markdown(f"""### Sentence A  
-> {row['Sentence A']}""")
-        st.markdown(f"""### Sentence B  
-> {row['Sentence B']}""")
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence A</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence A']}</p>", unsafe_allow_html=True)
+
+        st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence B</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:22px;'>{row['Sentence B']}</p>", unsafe_allow_html=True)
 
         choice = st.radio("이 두 문장은 얼마나 유사한가요?", list(rating_labels.keys()), index=3)
         rating = rating_labels[choice]
@@ -109,10 +156,15 @@ elif st.session_state.step == "survey":
                 "ID": int(row["ID"]),
                 "Sentence A": row["Sentence A"],
                 "Sentence B": row["Sentence B"],
-                "Rating": rating
+                "Rating": rating,
+                "응답 시각": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             combined.update(st.session_state.user_info)
             st.session_state.responses.append(combined)
+
+            # 중간 저장
+            pd.DataFrame(st.session_state.responses).to_csv(SAVE_FILE, index=False)
+
             st.session_state.index += 1
             st.rerun()
     else:
