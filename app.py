@@ -1,3 +1,4 @@
+st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 import streamlit as st
 
 if "step" not in st.session_state:
@@ -50,7 +51,6 @@ import pandas as pd
 import os
 import time
 import random
-st.set_page_config(page_title="문장 유사도 설문", layout="wide")
 from datetime import datetime, timedelta
 
 
