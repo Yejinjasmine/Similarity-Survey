@@ -209,11 +209,12 @@ elif st.session_state.step == "survey":
         st.markdown(f"<p style='font-size:18px; font-weight:bold;'>Sentence B</p>", unsafe_allow_html=True)
         st.markdown(f"<p style='font-size:22px;'>{row['Sentence B']}</p>", unsafe_allow_html=True)
 
+        
         # 사용자 응답 유지
         previous_rating = None
         for r in st.session_state.responses:
-            if r["ID"] == row["ID"] and r["참가자 ID"] == st.session_state.user_info["참가자 ID"]:
-                previous_rating = r["Rating"]
+            if r["ID"] == int(row["ID"]) and r["참가자 ID"] == st.session_state.user_info["참가자 ID"]:
+                previous_rating = int(r["Rating"])
                 break
 
         rating_keys = list(rating_labels.keys())
